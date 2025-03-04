@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Загрузка CSV</title>
+</head>
+<body>
+    <h2>Загрузите CSV-файл для предсказания</h2>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".csv" required>
+        <button type="submit">Отправить</button>
+    </form>
+    
+    {% if accuracy is defined and accuracy is not none %}
+    <h3>Точность модели: {{ (accuracy * 100) | round(2) }}%</h3>
+    {% endif %}
+    
+    {% if download_link %}
+    <a href="{{ download_link }}" download>
+        <button>Скачать результаты</button>
+    </a>
+    {% endif %}
+</body>
+</html>
