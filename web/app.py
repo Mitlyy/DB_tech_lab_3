@@ -1,9 +1,12 @@
 import io
 import os
+import sys
 from typing import Any, Dict, List
 
 import pandas as pd
 from flask import Flask, jsonify, render_template, request, send_file
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.inference import InferenceService
 
 APP_HOST = "0.0.0.0"

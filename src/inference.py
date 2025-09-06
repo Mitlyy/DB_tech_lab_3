@@ -59,13 +59,48 @@ class InferenceService:
 
     def predict_proba_df(self, df: pd.DataFrame) -> np.ndarray:
         """
-        Принимает DataFrame, делает выравнивание, скейлинг и возвращает вероятности класса 1.
-        Shape результата: (n_samples,)
+        Принимает DataFrame, выравнивает под нужные признаки, скейлит
+        и возвращает вероятности класса 1 в диапазоне [0, 1], shape: (n_samples,).
         """
         X = self._align_features(df)
         X_scaled = self.scaler.transform(X)
-        proba = self.model.predict(X_scaled, verbose=0)
-        proba = np.asarray(proba).reshape(-1)
+
+        raw = self.model.predict(X_scaled, verbose=0)
+        raw = np.asarray(raw)
+
+        def _sigmoid(x: np.ndarray) -> np.ndarray:
+            out = np.empty_like(x, dtype=np.float64)
+            pos_mask = x >= 0
+            neg_mask = ~pos_mask
+            out[pos_mask] = 1.0 / (1.0 + np.exp(-x[pos_mask]))
+            expx = np.exp(x[neg_mask])
+            out[neg_mask] = expx / (1.0 + expx)
+            return out
+
+        def _softmax_2(z: np.ndarray) -> np.ndarray:
+            z = z.astype(np.float64)
+            z = z - np.max(z, axis=1, keepdims=True)
+            ez = np.exp(z)
+            denom = np.sum(ez, axis=1, keepdims=True)
+            return ez / denom
+
+        if raw.ndim == 2 and raw.shape[1] == 1:
+            v = raw.reshape(-1)  # (n,)
+            if np.nanmin(v) < 0.0 or np.nanmax(v) > 1.0:
+                v = _sigmoid(v)
+            proba = v
+
+        elif raw.ndim == 2 and raw.shape[1] == 2:
+            sm = _softmax_2(raw)
+            proba = sm[:, 1]
+
+        else:
+            v = raw.reshape(-1)
+            proba = _sigmoid(v)
+
+        proba = np.nan_to_num(proba, nan=0.5, posinf=1.0, neginf=0.0)
+        proba = np.clip(proba, 0.0, 1.0)
+
         return proba
 
     def predict_df(self, df: pd.DataFrame) -> np.ndarray:
