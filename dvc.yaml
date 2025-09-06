@@ -1,0 +1,40 @@
+stages:
+  prepare:
+    cmd: python -m src.prepare
+    deps:
+      - src/prepare.py
+      - data/data.csv
+    outs:
+      - data/processed.csv
+      - model/scaler.pkl
+    outs_no_cache:
+      - model/prepare_stats.json  
+
+  train:
+    cmd: python -m src.pipeline train
+    deps:
+      - src/pipeline.py
+      - src/modeling.py
+      - src/preprocess.py
+      - src/config.py
+      - config.ini
+      - data/processed.csv
+      - model/scaler.pkl
+    outs:
+      - model/model.keras
+
+  evaluate:
+    cmd: python -m src.pipeline evaluate
+    deps:
+      - src/pipeline.py
+      - src/modeling.py
+      - src/preprocess.py
+      - src/config.py
+      - config.ini
+      - data/processed.csv
+      - model/model.keras
+      - model/scaler.pkl
+    metrics:
+      - model/metrics.json:
+          cache: false
+

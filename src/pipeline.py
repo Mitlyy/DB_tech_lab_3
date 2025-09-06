@@ -14,44 +14,46 @@ from src.preprocess import Preprocessor
 def cmd_train():
     cfg = load_config()
 
-    loader = DataLoader(cfg.paths.data_csv, cfg.train.test_size, cfg.train.random_state)
-    df = loader.load()
-    X, y = loader.build_xy(df)
+    processed_path = "data/processed.csv"
+    use_processed = os.path.isfile(processed_path)
 
-    pre = Preprocessor(cfg.paths.scaler_path)
-    X_train, X_test, y_train, y_test = loader.train_test_split(X, y)
-    X_train_s = pre.fit_transform(X_train)
-    X_test_s = pre.transform(X_test)
-    pre.save()
+    if use_processed:
+        df = pd.read_csv(processed_path)
+        if "target" not in df.columns:
+            raise ValueError("В processed.csv не найдена колонка 'target'")
 
-    model = BreastCancerClassifier(
-        input_dim=X_train_s.shape[1],
-        hidden_units=cfg.model.hidden_units,
-        dropout=cfg.model.dropout,
-        activation=cfg.model.activation,
-        output_activation=cfg.model.output_activation,
-        from_logits=cfg.model.from_logits,
-        learning_rate=cfg.train.learning_rate,
-        model_path=cfg.paths.model_path,
-        metrics_path=cfg.paths.metrics_path,
-    )
-    model.build()
-    model.train(
-        X_train_s,
-        y_train,
-        epochs=cfg.train.epochs,
-        batch_size=cfg.train.batch_size,
-        patience=cfg.train.patience,
-        validation_split=cfg.train.validation_split,
-    )
-    model.save()
+        feature_cols = [c for c in df.columns if c != "target"]
+        X_all = df[feature_cols]
+        y_all = df["target"].astype(int)
 
-    metrics = model.evaluate(X_test_s, y_test)
-    model.save_metrics(metrics)
+        from src.preprocess import Preprocessor
 
-    print("Обучение завершено. Метрики:", metrics)
-    print(f"Модель: {cfg.paths.model_path}")
-    print(f"Scaler: {cfg.paths.scaler_path}")
+        pre = Preprocessor(cfg.paths.scaler_path).load()
+
+        from sklearn.model_selection import train_test_split
+
+        X_train_s, X_test_s, y_train, y_test = train_test_split(
+            X_all,
+            y_all,
+            test_size=cfg.train.test_size,
+            random_state=cfg.train.random_state,
+            stratify=y_all,
+        )
+    else:
+        from src.data_loader import DataLoader
+        from src.preprocess import Preprocessor
+
+        loader = DataLoader(
+            cfg.paths.data_csv, cfg.train.test_size, cfg.train.random_state
+        )
+        df = loader.load()
+        X, y = loader.build_xy(df)
+
+        pre = Preprocessor(cfg.paths.scaler_path)
+        X_train, X_test, y_train, y_test = loader.train_test_split(X, y)
+        X_train_s = pre.fit_transform(X_train)
+        X_test_s = pre.transform(X_test)
+        pre.save()
 
 
 def cmd_evaluate():
