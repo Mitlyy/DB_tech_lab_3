@@ -23,7 +23,7 @@ Thumbs.db
 data/
 model/
 dist/
-*.dvc
+# *.dvc
 dvc.lock
 
 logs/
