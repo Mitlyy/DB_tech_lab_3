@@ -1,54 +1,49 @@
-import os
-import sys
-import io
-import pytest
-import pandas as pd
+import json
+
 import numpy as np
-from flask import template_rendered
+import pandas as pd
+import pytest
+from src.inference import InferenceService
+from web.app import app
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from web.app import app  
-
-@pytest.fixture
+@pytest.fixture(scope="module")
 def client():
-    app.config['TESTING'] = True
-    client = app.test_client()
-    yield client
+    app.testing = True
+    with app.test_client() as c:
+        yield c
 
-def test_index(client):
-    """ Проверка загрузки главной страницы """
-    response = client.get('/')
-    assert response.status_code == 200
-    assert "Загрузите CSV-файл для предсказания" in response.data.decode('utf-8')
 
-def test_upload_no_file(client):
-    """ Проверка загрузки без файла """
-    response = client.post('/upload', data={})
-    assert response.status_code == 200
-    assert "Точность модели" not in response.data.decode('utf-8')
+def test_root(client):
+    resp = client.get("/")
+    assert resp.status_code == 200
 
-def test_upload_invalid_file(client):
-    """ Проверка загрузки пустого файла """
-    data = {'file': (io.BytesIO(b""), 'empty.csv')}
-    response = client.post('/upload', data=data, content_type='multipart/form-data')
-    assert response.status_code == 200
-    assert "Точность модели" not in response.data.decode('utf-8')
 
-def test_upload_valid_file(client):
-    """ Проверка загрузки корректного CSV-файла """
-    df = pd.DataFrame(np.random.rand(5, 30))
-    file = io.StringIO()
-    df.to_csv(file, index=False)
-    file.seek(0)
+def test_predict_instances(client):
+    infer = InferenceService()
+    cols = infer.feature_names
 
-    data = {'file': (file, 'test.csv')}
-    response = client.post('/upload', data=data, content_type='multipart/form-data')
-    assert response.status_code == 200
-    assert "Точность модели" in response.data.decode('utf-8')
+    rec1 = {c: float(i) for i, c in enumerate(cols[:10])}
+    rec2 = {c: float(i) for i, c in enumerate(cols)}
 
-def test_download(client):
-    """ Проверка скачивания файла с предсказаниями """
-    response = client.get('/download')
-    assert response.status_code == 200
-    assert response.headers["Content-Disposition"].startswith("attachment")
+    payload = {"instances": [rec1, rec2]}
+    resp = client.post("/predict", json=payload)
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert "predictions" in data and "probabilities" in data
+    assert len(data["predictions"]) == 2
+    assert all(p in [0, 1] for p in data["predictions"])
+    assert all(0.0 <= x <= 1.0 for x in data["probabilities"])
+
+
+def test_predict_data_matrix(client):
+    infer = InferenceService()
+    cols = infer.feature_names
+
+    mat = (np.random.randn(3, len(cols))).tolist()
+    payload = {"data": mat}
+    resp = client.post("/predict", json=payload)
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert len(data["predictions"]) == 3
+    assert "feature_order" in data

@@ -1,26 +1,47 @@
 import os
-import joblib
+
 import numpy as np
 import pandas as pd
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from src.model import model, scaler
+import pytest
+from src.inference import InferenceService
 
 
-def test_model_load():
-    """ Проверка загрузки модели и скейлера """
-    assert model is not None
-    assert scaler is not None
+@pytest.fixture(scope="module")
+def infer():
+    assert os.path.isfile("model/model.keras"), "Отсутствует model/model.keras"
+    assert os.path.isfile("model/scaler.pkl"), "Отсутствует model/scaler.pkl"
+    return InferenceService(
+        model_path="model/model.keras", scaler_path="model/scaler.pkl", threshold=0.5
+    )
 
-def test_model_prediction():
-    """ Проверка работы модели на случайном входе """
-    X_test = np.random.rand(1, 30)
-    X_scaled = scaler.transform(X_test)
-    prediction = model.predict(X_scaled)
-    assert prediction in [0, 1]
 
-def test_data_processing():
-    """ Проверка предобработки данных """
-    df = pd.DataFrame(np.random.rand(5, 30))  
-    assert not df.isnull().values.any()  
-    assert df.shape[1] == 30  
+def test_predict_binary_output(infer: InferenceService):
+    cols = infer.feature_names
+    X = pd.DataFrame(np.random.randn(4, len(cols)), columns=cols)
+
+    labels = infer.predict_df(X)
+    proba = infer.predict_proba_df(X)
+
+    assert labels.shape == (4,)
+    assert proba.shape == (4,)
+    assert set(np.unique(labels)).issubset({0, 1})
+    assert np.all((proba >= 0.0) & (proba <= 1.0))
+
+
+def test_alignment_with_extra_and_missing_columns(infer: InferenceService):
+    cols = infer.feature_names
+
+    df = pd.DataFrame(
+        {
+            "id": [1, 2],
+            "diagnosis": ["M", "B"],
+            "Unnamed: 32": [np.nan, np.nan],
+            cols[0]: [0.1, -0.2],
+            cols[1]: [1.0, 2.0],
+            "totally_extra_col": [123, 456],
+        }
+    )
+
+    labels = infer.predict_df(df)
+    assert labels.shape == (2,)
+    assert set(np.unique(labels)).issubset({0, 1})
