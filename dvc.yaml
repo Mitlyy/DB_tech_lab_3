@@ -7,7 +7,7 @@ stages:
     outs:
       - data/processed.csv
       - model/scaler.pkl
-      - path: model/prepare_stats.json   
+      - path: model/prepare_stats.json
         cache: false
 
   train:
