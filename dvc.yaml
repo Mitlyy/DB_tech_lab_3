@@ -7,8 +7,8 @@ stages:
     outs:
       - data/processed.csv
       - model/scaler.pkl
-    outs_no_cache:
-      - model/prepare_stats.json  
+      - path: model/prepare_stats.json   
+        cache: false
 
   train:
     cmd: python -m src.pipeline train
