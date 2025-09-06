@@ -20,11 +20,13 @@ venv/
 .DS_Store
 Thumbs.db
 
-data/
-model/
-dist/
-# *.dvc
-dvc.lock
+data/*
+!data/*.dvc      
+!data/.gitignore 
+model/*
+!model/*.dvc
+dist/*
+!dist/*.dvc
 
 logs/
 *.log
