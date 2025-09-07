@@ -21,12 +21,9 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Set up DVC
-        run: pip install dvc[all]
-
-      - name: Pull model artifacts
-        run: dvc pull
+      - name: train :)
+        run: 
+          python -m src.pipeline train
       - name: Run tests
         run: PYTHONPATH=. pytest -q --disable-warnings
 
