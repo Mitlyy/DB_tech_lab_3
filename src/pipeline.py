@@ -55,6 +55,38 @@ def cmd_train():
         X_test_s = pre.transform(X_test)
         pre.save()
 
+    from src.modeling import BreastCancerClassifier
+
+    model = BreastCancerClassifier(
+        input_dim=X_train_s.shape[1],
+        hidden_units=cfg.model.hidden_units,
+        dropout=cfg.model.dropout,
+        activation=cfg.model.activation,
+        output_activation=cfg.model.output_activation,
+        from_logits=cfg.model.from_logits,
+        learning_rate=cfg.train.learning_rate,
+        model_path=cfg.paths.model_path,
+        metrics_path=cfg.paths.metrics_path,
+    )
+    model.build()
+
+    print(">>> START TRAINING")
+    model.train(
+        X_train_s,
+        y_train,
+        epochs=cfg.train.epochs,
+        batch_size=cfg.train.batch_size,
+        patience=cfg.train.patience,
+        validation_split=cfg.train.validation_split,
+    )
+
+    model.save()
+    print(">>> MODEL", cfg.paths.model_path)
+
+    metrics = model.evaluate(X_test_s, y_test)
+    model.save_metrics(metrics)
+    print("Metrics:", metrics)
+
 
 def cmd_evaluate():
     cfg = load_config()
