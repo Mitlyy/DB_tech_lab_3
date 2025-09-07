@@ -1,6 +1,10 @@
 [core]
-    remote = gdrive
+    remote = gdrive_remote
 ['remote "local"']
     url = ../dvcstore
 ['remote "gdrive"']
     url = gdrive://1dlhQnN6bUFlSMrxg3xdXkSzzWa8G6Ouz?dmr=1
+['remote "gdrive_remote"']
+    url = gdrive://1dlhQnN6bUFlSMrxg3xdXkSzzWa8G6Ouz?usp
+    gdrive_acknowledge_abuse = true
+    gdrive_use_service_account = true
