@@ -1,0 +1,98 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: python -m src.prepare
+    deps:
+    - path: data/data.csv
+      hash: md5
+      md5: 6165d90b8708bb1c1dd14245cc6bef46
+      size: 125204
+    - path: src/prepare.py
+      hash: md5
+      md5: 3d885af990221da95e59250ee6afe87d
+      size: 1711
+    outs:
+    - path: data/processed.csv
+      hash: md5
+      md5: 88cbbe2130e73f282c32590349e1e173
+      size: 338735
+    - path: model/scaler.pkl
+      hash: md5
+      md5: d906c995bf677b3221e2c8d3390ead2b
+      size: 2103
+  train:
+    cmd: python -m src.pipeline train
+    deps:
+    - path: config.ini
+      hash: md5
+      md5: 70abe0e1658110aaa08704c9b2c38525
+      size: 632
+    - path: data/processed.csv
+      hash: md5
+      md5: 88cbbe2130e73f282c32590349e1e173
+      size: 338735
+    - path: model/scaler.pkl
+      hash: md5
+      md5: d906c995bf677b3221e2c8d3390ead2b
+      size: 2103
+    - path: src/config.py
+      hash: md5
+      md5: 42d341dc06d9106cd22337dfeff44869
+      size: 2461
+    - path: src/modeling.py
+      hash: md5
+      md5: 22d51d0984cf1dd471ea324902ffccd6
+      size: 4772
+    - path: src/pipeline.py
+      hash: md5
+      md5: fc6de55f7c272af155ca883d43c83376
+      size: 4702
+    - path: src/preprocess.py
+      hash: md5
+      md5: d2495c167cdaac5ab6f1da244516ac3a
+      size: 1655
+    outs:
+    - path: model/model.keras
+      hash: md5
+      md5: 7659042d61fb41ba042baa6ed1ca673a
+      size: 79125
+  evaluate:
+    cmd: python -m src.pipeline evaluate
+    deps:
+    - path: config.ini
+      hash: md5
+      md5: 70abe0e1658110aaa08704c9b2c38525
+      size: 632
+    - path: data/processed.csv
+      hash: md5
+      md5: 88cbbe2130e73f282c32590349e1e173
+      size: 338735
+    - path: model/model.keras
+      hash: md5
+      md5: 7659042d61fb41ba042baa6ed1ca673a
+      size: 79125
+    - path: model/scaler.pkl
+      hash: md5
+      md5: d906c995bf677b3221e2c8d3390ead2b
+      size: 2103
+    - path: src/config.py
+      hash: md5
+      md5: 42d341dc06d9106cd22337dfeff44869
+      size: 2461
+    - path: src/modeling.py
+      hash: md5
+      md5: 22d51d0984cf1dd471ea324902ffccd6
+      size: 4772
+    - path: src/pipeline.py
+      hash: md5
+      md5: fc6de55f7c272af155ca883d43c83376
+      size: 4702
+    - path: src/preprocess.py
+      hash: md5
+      md5: d2495c167cdaac5ab6f1da244516ac3a
+      size: 1655
+    outs:
+    - path: model/metrics.json
+      hash: md5
+      md5: 5df8619c787178dc4e9a89d94eb17c12
+      size: 96
