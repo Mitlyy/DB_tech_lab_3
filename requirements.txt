@@ -11,4 +11,5 @@ pytest
 pytest-cov
 joblib
 dvc[all]
-
+redis
+requests
