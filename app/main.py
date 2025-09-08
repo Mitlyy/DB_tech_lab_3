@@ -11,6 +11,7 @@ import redis
 import requests
 from flask import Flask, jsonify, render_template, request, send_file
 
+# ------------------- Конфигурация через ENV -------------------
 APP_HOST = os.getenv("APP_HOST", "0.0.0.0")
 APP_PORT = int(os.getenv("APP_PORT", "4000"))
 
@@ -21,33 +22,37 @@ REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 INPUT_LIST = os.getenv("ML_INPUT_LIST", "ml:input")
 PRED_LIST = os.getenv("ML_PREDICTIONS_LIST", "ml:predictions")
 
-PREDICT_URL = os.getenv("PREDICT_URL", "http://127.0.0.1:4000/predict")
+PREDICT_URL = os.getenv("PREDICT_URL", f"http://127.0.0.1:{APP_PORT}/predict")
 
 ENABLE_REDIS_WORKER = os.getenv("ENABLE_REDIS_WORKER", "0") == "1"
-
 BLPOP_TIMEOUT = 5
 IDLE_SLEEP = 0.5
 
-# ------------------------------------------------------------
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from src.inference import InferenceService  # noqa: E402
 
 app = Flask(__name__)
 
-_inference_service: Optional[InferenceService] = None
+_inference_service: Optional["InferenceService"] = None  # type: ignore[name-defined]
 
 
-def get_inference() -> InferenceService:
-    """Ленивая инициализация модели/скейлера один раз на процесс."""
+def get_inference():
+    """
+    Ленивая загрузка модели/скейлера при первом обращении.
+    Избегаем тяжёлых импортов на старте процесса (совместимо с Flask 3).
+    """
     global _inference_service
     if _inference_service is None:
+        from src.inference import InferenceService
+
         _inference_service = InferenceService(
             model_path="model/model.keras",
             scaler_path="model/scaler.pkl",
             threshold=0.5,
         )
     return _inference_service
+
+
+_worker_thread: Optional[threading.Thread] = None
 
 
 def _connect_redis() -> redis.Redis:
@@ -64,11 +69,11 @@ def _connect_redis() -> redis.Redis:
 
 def _infer_via_http(payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
-    Вызываем локальный HTTP-эндпоинт /predict, который уже использует ваш InferenceService.
-    Ожидаем JSON-ответ. В случае ошибки возвращаем None.
+    Вызов локального /predict (наши же процессы), чтобы использовать общую логику инференса.
+    Возвращает словарь JSON или None при ошибке.
     """
     try:
-        resp = requests.post(PREDICT_URL, json=payload, timeout=10)
+        resp = requests.post(PREDICT_URL, json=payload, timeout=15)
         resp.raise_for_status()
         return resp.json()
     except Exception as e:
@@ -78,11 +83,11 @@ def _infer_via_http(payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def worker_loop():
     """
-    Фоновый цикл:
-      1) BLPOP из INPUT_LIST (ожидание данных)
-      2) payload -> POST /predict
-      3) результат -> RPUSH в PRED_LIST
-    Формат входа: JSON-строка; рекомендуемый формат: {"id": "...", "instances": [ {feature: value, ...} ]}
+    Цикл воркера:
+      1) BLPOP из INPUT_LIST,
+      2) вызов /predict,
+      3) запись результата в PRED_LIST (RPUSH).
+    Формат входа (рекоменд.): {"id":"...", "instances":[{feature: value, ...}]}
     """
     r = _connect_redis()
     print(
@@ -91,12 +96,12 @@ def worker_loop():
     )
     while True:
         try:
-            item = r.blpop(INPUT_LIST, timeout=BLPOP_TIMEOUT)  # (list_name, raw_json)
+            item = r.blpop(INPUT_LIST, timeout=BLPOP_TIMEOUT)
             if not item:
                 time.sleep(IDLE_SLEEP)
                 continue
 
-            _list, raw = item
+            _list_name, raw = item
             try:
                 payload = json.loads(raw)
             except json.JSONDecodeError:
@@ -111,11 +116,10 @@ def worker_loop():
                 "id": payload.get("id"),
                 "ts": int(time.time()),
             }
-
             if isinstance(result, dict) and "predictions" in result:
                 out["prediction"] = result["predictions"]
             else:
-                out["prediction"] = result  # положим целиком, если структура другая
+                out["prediction"] = result  # положим весь ответ
 
             r.rpush(PRED_LIST, json.dumps(out))
             print(f"[redis-worker] Wrote prediction for id={out.get('id')}")
@@ -124,11 +128,7 @@ def worker_loop():
             time.sleep(1)
 
 
-_worker_thread: Optional[threading.Thread] = None
-
-
 def start_worker_background():
-    """Запускаем воркер в отдельном демонизированном потоке (один раз на процесс)."""
     global _worker_thread
     if _worker_thread and _worker_thread.is_alive():
         return
@@ -137,6 +137,16 @@ def start_worker_background():
     )
     _worker_thread.start()
     print("[redis-worker] Started background worker thread")
+
+
+if ENABLE_REDIS_WORKER:
+    try:
+        start_worker_background()
+        print("[app] Redis worker ENABLED (started at import time)")
+    except Exception as e:
+        print(f"[app] Failed to start worker: {e}")
+else:
+    print("[app] Redis worker DISABLED (set ENABLE_REDIS_WORKER=1 to enable)")
 
 
 @app.route("/", methods=["GET"])
@@ -152,10 +162,30 @@ def index():
     )
 
 
+@app.route("/health/worker", methods=["GET"])
+def health_worker():
+    alive = _worker_thread.is_alive() if _worker_thread else False
+    return (
+        jsonify(
+            {
+                "worker_enabled_env": ENABLE_REDIS_WORKER,
+                "worker_alive": bool(alive),
+                "redis_host": REDIS_HOST,
+                "redis_port": REDIS_PORT,
+                "input_list": INPUT_LIST,
+                "pred_list": PRED_LIST,
+                "predict_url": PREDICT_URL,
+            }
+        ),
+        200,
+    )
+
+
 @app.route("/upload", methods=["POST"])
 def upload():
     """
-    Принимает multipart/form-data с CSV-файлом (поле 'file').
+    Принимает multipart/form-data (поле 'file' с CSV).
+    Возвращает predictions.csv для скачивания.
     """
     if "file" not in request.files:
         return jsonify({"error": "Отсутствует поле 'file' с CSV"}), 400
@@ -175,12 +205,12 @@ def upload():
         out_df["probability"] = proba
         out_df["prediction"] = labels
 
-        buffer = io.StringIO()
-        out_df.to_csv(buffer, index=False)
-        buffer.seek(0)
+        buf = io.StringIO()
+        out_df.to_csv(buf, index=False)
+        buf.seek(0)
 
         return send_file(
-            io.BytesIO(buffer.getvalue().encode("utf-8")),
+            io.BytesIO(buf.getvalue().encode("utf-8")),
             mimetype="text/csv",
             as_attachment=True,
             download_name="predictions.csv",
@@ -192,9 +222,9 @@ def upload():
 @app.route("/predict", methods=["POST"])
 def predict():
     """
-    JSON API.
-    1) records: {"instances": [ {feature: value, ...}, ... ]}
-    2) matrix:  {"data": [[...], [...]], "feature_names": ["mean radius", ...]? (опционально)}
+    JSON API. Поддерживаются два формата:
+      1) records: {"instances": [ {feature: value, ...}, ... ]}
+      2) matrix:  {"data": [[...], [...]], "feature_names": ["f1", ...]? (опц.)}
     """
     try:
         payload: Dict[str, Any] = request.get_json(force=True, silent=False)
@@ -282,15 +312,6 @@ def predict():
         )
 
     return jsonify({"error": "Ожидались поля 'instances' или 'data'"}), 400
-
-
-@app.before_first_request
-def _maybe_start_worker():
-    if ENABLE_REDIS_WORKER:
-        start_worker_background()
-        print("[app] Redis worker ENABLED")
-    else:
-        print("[app] Redis worker DISABLED (set ENABLE_REDIS_WORKER=1 to enable)")
 
 
 if __name__ == "__main__":

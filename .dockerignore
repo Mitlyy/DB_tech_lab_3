@@ -1,24 +1,25 @@
-.git/
-.dvc/
-.dvcignore
-.dvc/cache/
 .vscode/
 .idea/
-*.swp
-*.swo
+*.iml
+
+.venv/
+venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.ipynb_checkpoints/
+.pytest_cache/
+.coverage
+htmlcov/
 
-.venv/
-
-data/
-model/
-dist/
-
+artifacts/
 logs/
-pytest_cache/
-dvcstore/
+*.log
+
+# git
+.git
+.gitignore
+
+*.ipynb_checkpoints/
+model_checkpoints/
 
