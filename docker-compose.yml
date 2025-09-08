@@ -1,22 +1,30 @@
-
+version: "3.9"
 services:
-  web:
+  model:
+    image: dbtl2-model:0.2.1
     build:
       context: .
-      dockerfile: Dockerfile
-    image: dbtechlab/web:latest
-    container_name: dbtechlab_web
     ports:
-      - "4000:4000"
-    volumes:
-      - ./model:/app/model:ro  
-      - ./logs:/app/logs       
+      - "8000:8000"
     environment:
-      - TF_CPP_MIN_LOG_LEVEL=2  
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:4000/"]
-      interval: 30s
-      timeout: 5s
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 20s
+      timeout: 3s
       retries: 3
-    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+volumes:
+  redisdata:
 

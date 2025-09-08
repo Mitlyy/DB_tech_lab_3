@@ -17,7 +17,7 @@ COPY src/ src/
 COPY app/ app/
 COPY web/ web/
 COPY config.ini .
-
+COPY model/ model/           
 EXPOSE 4000
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

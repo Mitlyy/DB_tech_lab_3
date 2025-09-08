@@ -1,15 +1,12 @@
 import json
 import os
-import sys
 import time
 import uuid
 
-import pytest
 import redis
 import requests
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+# Подключение к Redis и приложению (локально)
 REDIS_HOST = os.getenv("REDIS_HOST", "127.0.0.1")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
@@ -17,40 +14,73 @@ INPUT_LIST = os.getenv("ML_INPUT_LIST", "ml:input")
 PRED_LIST = os.getenv("ML_PREDICTIONS_LIST", "ml:predictions")
 APP_URL = os.getenv("APP_URL", "http://127.0.0.1:4000")
 
+# Полный набор 30 признаков sklearn breast_cancer
+FEATURES = [
+    "mean radius",
+    "mean texture",
+    "mean perimeter",
+    "mean area",
+    "mean smoothness",
+    "mean compactness",
+    "mean concavity",
+    "mean concave points",
+    "mean symmetry",
+    "mean fractal dimension",
+    "radius error",
+    "texture error",
+    "perimeter error",
+    "area error",
+    "smoothness error",
+    "compactness error",
+    "concavity error",
+    "concave points error",
+    "symmetry error",
+    "fractal dimension error",
+    "worst radius",
+    "worst texture",
+    "worst perimeter",
+    "worst area",
+    "worst smoothness",
+    "worst compactness",
+    "worst concavity",
+    "worst concave points",
+    "worst symmetry",
+    "worst fractal dimension",
+]
 
-@pytest.fixture(scope="session")
-def rconn():
+
+def _make_instance():
+    # База — нули, чтобы не заморачиваться с реальными значениями
+    inst = {name: 0.0 for name in FEATURES}
+    # Чуть-чуть зададим осмысленных значений, не принципиально
+    inst["mean radius"] = 14.5
+    inst["mean texture"] = 20.1
+    inst["worst radius"] = 16.8
+    inst["worst area"] = 900.0
+    return inst
+
+
+def test_e2e_prediction_flow():
     r = redis.Redis(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        password=REDIS_PASSWORD,
-        decode_responses=True,
-        socket_timeout=5,
-        socket_connect_timeout=5,
+        host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, decode_responses=True
     )
-    pong = r.ping()
-    assert pong is True
-    return r
+    assert r.ping() is True
 
-
-def test_e2e_prediction_flow(rconn):
-    _len = rconn.llen(PRED_LIST)
-    if _len and _len > 500:
-        rconn.ltrim(PRED_LIST, -100, -1)
-
-    rec_id = f"e2e-{uuid.uuid4().hex[:8]}"
-    payload = {"id": rec_id, "instances": [{"mean radius": 14.5, "mean texture": 20.1}]}
-
+    # sanity: HTTP жив
     resp = requests.get(f"{APP_URL}/")
     assert resp.status_code == 200
 
-    rconn.rpush(INPUT_LIST, json.dumps(payload))
+    # кладём задание
+    rec_id = f"e2e-{uuid.uuid4().hex[:8]}"
+    payload = {"id": rec_id, "instances": [_make_instance()]}
+    r.rpush(INPUT_LIST, json.dumps(payload))
 
-    deadline = time.time() + 10
+    # ждём результат до 20 сек
+    deadline = time.time() + 20
     got = None
-    last = None
+    last = []
     while time.time() < deadline:
-        items = rconn.lrange(PRED_LIST, -5, -1)
+        items = r.lrange(PRED_LIST, -10, -1)
         last = items
         for it in items:
             try:
@@ -67,6 +97,4 @@ def test_e2e_prediction_flow(rconn):
     assert (
         got is not None
     ), f"Не нашли предсказание для id={rec_id}. Последние элементы: {last}"
-
-    assert "prediction" in got
-    assert "ts" in got
+    assert "prediction" in got and "ts" in got

@@ -10,20 +10,21 @@ jobs:
   build_test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout (with LFS)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          lfs: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install DVC + deps
+      - name: Install project deps + DVC
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt || true
+          if [ -f requirements.txt ]; then pip install -r requirements.txt || true; fi
           pip install "dvc>=3.0.0" dvc-gdrive jq
 
       - name: Write Service Account JSON from secret
@@ -53,7 +54,6 @@ jobs:
       - name: dvc pull
         run: dvc pull -v
 
-      # сюда помести свои тесты, если есть
       - name: Run tests (optional)
         run: pytest -q || true
 
@@ -62,13 +62,13 @@ jobs:
     needs: build_test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-      - name: Checkout
+      - name: Checkout (with LFS)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          lfs: true
 
-      # Если образу нужны данные, подтяни их и тут (иначе пропусти этот шаг)
-      - name: Setup Python for DVC
+      - name: Setup Python for DVC (optional)
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -105,7 +105,6 @@ jobs:
         with:
           context: .
           push: true
-          # можно добавить ,${{ secrets.DOCKERHUB_USERNAME }}/dbtechlab-web:${{ github.ref_name }}
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/dbtechlab-web:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/dbtechlab-web:${{ github.sha }}
