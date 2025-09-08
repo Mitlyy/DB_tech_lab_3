@@ -23,7 +23,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build image (no push)
+      - name: Build image (load to local Docker)
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -32,14 +32,15 @@ jobs:
           load: true
           tags: mitlyy/dbtechlab3:ci-test
           provenance: false
+          secrets: |
+            id=vault_pass,env=ANSIBLE_VAULT_PASS
 
       - name: Create test network
         run: docker network create ci_net
 
       - name: Run Redis
         run: |
-          docker run -d --name ci-redis --network ci_net redis:7-alpine \
-            --appendonly yes
+          docker run -d --name ci-redis --network ci_net redis:7-alpine --appendonly yes
           docker exec ci-redis redis-cli ping
 
       - name: Run model container
@@ -50,7 +51,7 @@ jobs:
             -e REDIS_HOST=ci-redis -e REDIS_PORT=6379 \
             -p 8000:8000 "$IMAGE"
 
-      - name: Wait for /health (up to ~60s)
+      - name: Wait for /health (up to 60s)
         shell: bash
         run: |
           set -euo pipefail
@@ -67,7 +68,7 @@ jobs:
           docker logs ci-model || true
           exit 1
 
-      - name: Show last logs (for debugging)
+      - name: Show last logs (debug)
         if: always()
         run: |
           echo "=== MODEL LOGS ==="

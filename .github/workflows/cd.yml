@@ -3,10 +3,9 @@ name: CD (Build & Push to Docker Hub)
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch:
-  push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 concurrency:
   group: cd-${{ github.ref }}
@@ -59,4 +58,6 @@ jobs:
           provenance: false
           cache-from: type=registry,ref=mitlyy/dbtechlab3:latest
           cache-to: type=inline
+          secrets: |
+            id=vault_pass,env=ANSIBLE_VAULT_PASS
 

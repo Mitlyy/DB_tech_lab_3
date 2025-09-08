@@ -22,15 +22,15 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 ENV ANSIBLE_CONFIG=/work/ansible/ansible.cfg
 
 RUN --mount=type=secret,id=vault_pass \
+    ANSIBLE_STDOUT_CALLBACK=default \
     ansible-playbook -i /work/ansible/inventory.ini /work/ansible/site.yml \
-      --vault-password-file /run/secrets/vault_pass \
- && echo "--- AFTER PLAYBOOK ---" \
- && ls -la /work || true \
- && ls -la /work/out || true \
- && ls -la /work/out/secrets || true \
- && test -f /work/out/.env \
- && test -f /work/out/secrets/gsa-dvc.json
-
+      --vault-password-file /run/secrets/vault_pass && \
+    echo '--- AFTER PLAYBOOK ---' && \
+    ls -la /work || true && \
+    ls -la /work/out || true && \
+    ls -la /work/out/secrets || true && \
+    test -f /work/out/.env && \
+    test -f /work/out/secrets/gsa-dvc.json
 
 FROM python:3.12-slim AS runtime
 WORKDIR /app
@@ -52,10 +52,10 @@ COPY --from=secrets /work/out/secrets /app/secrets
 RUN test -f /app/.env || (echo ".env not found after vault render" && exit 1) && \
     test -f /app/secrets/gsa-dvc.json || (echo "secrets/gsa-dvc.json not found after vault render" && exit 1)
 
-EXPOSE 4000
+EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD curl -fsS http://127.0.0.1:4000/ || exit 1
+  CMD curl -fsS http://127.0.0.1:8000/ || exit 1
 
 CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:8000", "app.main:app"]
 
