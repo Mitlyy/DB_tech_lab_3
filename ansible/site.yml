@@ -1,0 +1,24 @@
+- name: Render secrets for local build
+  hosts: local
+  gather_facts: false
+  vars:
+    project_root: "{{ (playbook_dir + '/..') | realpath }}"
+  tasks:
+    - name: Ensure secrets dir exists
+      ansible.builtin.file:
+        path: "{{ project_root }}/secrets"
+        state: directory
+        mode: "0700"
+
+    - name: Render .env from vault
+      ansible.builtin.template:
+        src: templates/env.j2
+        dest: "{{ project_root }}/.env"
+        mode: "0600"
+
+    - name: Render gsa-dvc.json from vault
+      ansible.builtin.template:
+        src: templates/gsa-dvc.json.j2
+        dest: "{{ project_root }}/secrets/gsa-dvc.json"
+        mode: "0600"
+
