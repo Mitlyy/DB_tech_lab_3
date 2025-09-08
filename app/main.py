@@ -13,7 +13,7 @@ from flask import Flask, jsonify, render_template, request, send_file
 
 # ------------------- Конфигурация через ENV -------------------
 APP_HOST = os.getenv("APP_HOST", "0.0.0.0")
-APP_PORT = int(os.getenv("APP_PORT", "4000"))
+APP_PORT = int(os.getenv("APP_PORT", "8000"))
 
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
@@ -33,6 +33,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 app = Flask(__name__)
 
 _inference_service: Optional["InferenceService"] = None  # type: ignore[name-defined]
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 
 def get_inference():

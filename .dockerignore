@@ -22,4 +22,4 @@ logs/
 
 *.ipynb_checkpoints/
 model_checkpoints/
-
+ansible/.vault_pass

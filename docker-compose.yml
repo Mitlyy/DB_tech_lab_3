@@ -1,30 +1,44 @@
 version: "3.9"
+
 services:
   model:
-    image: dbtl2-model:0.2.1
     build:
       context: .
+      dockerfile: Dockerfile
+      secrets:
+        - source: vault_pass
+          target: vault_pass
+    image: mitlyy/dbtechlab3:local
+    container_name: dbtl3-model
     ports:
       - "8000:8000"
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
       interval: 20s
-      timeout: 3s
-      retries: 3
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "6379:6379"
     volumes:
       - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
 volumes:
   redisdata:
+
+secrets:
+  vault_pass:
+    file: ansible/.vault_pass
 

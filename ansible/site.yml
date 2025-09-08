@@ -1,24 +1,31 @@
-- name: Render secrets for local build
+- name: Render secrets for docker build (secrets stage)
   hosts: local
   gather_facts: false
   vars:
-    project_root: "{{ (playbook_dir + '/..') | realpath }}"
+    out_dir: "/work/out"
   tasks:
-    - name: Ensure secrets dir exists
+    - name: Ensure out_dir exists
       ansible.builtin.file:
-        path: "{{ project_root }}/secrets"
+        path: "{{ out_dir }}/secrets"
         state: directory
         mode: "0700"
 
     - name: Render .env from vault
       ansible.builtin.template:
         src: templates/env.j2
-        dest: "{{ project_root }}/.env"
+        dest: "{{ out_dir }}/.env"
         mode: "0600"
 
     - name: Render gsa-dvc.json from vault
       ansible.builtin.template:
         src: templates/gsa-dvc.json.j2
-        dest: "{{ project_root }}/secrets/gsa-dvc.json"
+        dest: "{{ out_dir }}/secrets/gsa-dvc.json"
+        mode: "0600"
+
+    - name: Append build marker
+      ansible.builtin.lineinfile:
+        path: "{{ out_dir }}/.env"
+        line: "BUILT_AT={{ lookup('pipe','date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+        create: yes
         mode: "0600"
 

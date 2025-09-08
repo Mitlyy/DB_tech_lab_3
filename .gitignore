@@ -48,7 +48,7 @@ secrets/
 *.vault_pass
 .vault_pass
 .vault_pass.txt
-
+ansible/.vault_pass
 # генерируемые секреты
 .env
 secrets/
