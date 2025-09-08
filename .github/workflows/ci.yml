@@ -23,15 +23,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build image (load to local Docker)
+      - name: Build 
         uses: docker/build-push-action@v6
+        env:
+          ANSIBLE_VAULT_PASS: ${{ secrets.ANSIBLE_VAULT_PASS }}
         with:
           context: .
           file: ./Dockerfile
           push: false
-          load: true
           tags: mitlyy/dbtechlab3:ci-test
-          provenance: false
           secrets: |
             id=vault_pass,env=ANSIBLE_VAULT_PASS
 

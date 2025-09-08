@@ -52,7 +52,7 @@ COPY --from=secrets /work/out/secrets /app/secrets
 RUN test -f /app/.env || (echo ".env not found after vault render" && exit 1) && \
     test -f /app/secrets/gsa-dvc.json || (echo "secrets/gsa-dvc.json not found after vault render" && exit 1)
 
-EXPOSE 4000
+EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD curl -fsS http://127.0.0.1:4000/ || exit 1
