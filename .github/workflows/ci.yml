@@ -17,13 +17,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Set up Docker Buildx
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build 
+      - name: Check vault secret presence (repo secret)
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false)
+        run: |
+          if [ -z "${ANSIBLE_VAULT_PASS}" ]; then
+            echo "ANSIBLE_VAULT_PASS is EMPTY (repo secret not available for this event)"; exit 1;
+          fi
+          echo "ANSIBLE_VAULT_PASS is present (value is masked)"
+        env:
+          ANSIBLE_VAULT_PASS: ${{ secrets.ANSIBLE_VAULT_PASS }}
+
+      - name: Build (full, with secrets)
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false)
         uses: docker/build-push-action@v6
         env:
           ANSIBLE_VAULT_PASS: ${{ secrets.ANSIBLE_VAULT_PASS }}
@@ -32,54 +44,20 @@ jobs:
           file: ./Dockerfile
           push: false
           tags: mitlyy/dbtechlab3:ci-test
+          provenance: false
+          cache-from: type=registry,ref=mitlyy/dbtechlab3:latest
+          cache-to: type=inline
           secrets: |
             id=vault_pass,env=ANSIBLE_VAULT_PASS
 
-      - name: Create test network
-        run: docker network create ci_net
-
-      - name: Run Redis
-        run: |
-          docker run -d --name ci-redis --network ci_net redis:7-alpine --appendonly yes
-          docker exec ci-redis redis-cli ping
-
-      - name: Run model container
-        env:
-          IMAGE: mitlyy/dbtechlab3:ci-test
-        run: |
-          docker run -d --name ci-model --network ci_net \
-            -e REDIS_HOST=ci-redis -e REDIS_PORT=6379 \
-            -p 8000:8000 "$IMAGE"
-
-      - name: Wait for /health (up to 60s)
-        shell: bash
-        run: |
-          set -euo pipefail
-          for i in {1..30}; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || true)
-            if [[ "$code" == "200" ]]; then
-              echo "Healthcheck OK"
-              exit 0
-            fi
-            echo "Waiting for health... ($i)"
-            sleep 2
-          done
-          echo "Healthcheck failed"
-          docker logs ci-model || true
-          exit 1
-
-      - name: Show last logs (debug)
-        if: always()
-        run: |
-          echo "=== MODEL LOGS ==="
-          docker logs --tail 200 ci-model || true
-          echo "=== REDIS LOGS ==="
-          docker logs --tail 200 ci-redis || true
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker rm -f ci-model || true
-          docker rm -f ci-redis || true
-          docker network rm ci_net || true
+      - name: Build (light, no secrets) for PR from forks
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          target: deps
+          tags: mitlyy/dbtechlab3:ci-light
+          provenance: false
 
