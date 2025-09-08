@@ -5,6 +5,6 @@
 ['remote "gdrive"']
     url = gdrive://1dlhQnN6bUFlSMrxg3xdXkSzzWa8G6Ouz?dmr=1
 ['remote "gdrive_remote"']
-    url = gdrive://1dlhQnN6bUFlSMrxg3xdXkSzzWa8G6Ouz?usp
+    url = gdrive://1dlhQnN6bUFlSMrxg3xdXkSzzWa8G6Ouz
     gdrive_acknowledge_abuse = true
     gdrive_use_service_account = true

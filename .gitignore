@@ -37,6 +37,9 @@ __pycache__/
 .dvc/tmp/
 .dvc/cache/
 
+.env
+secrets/
+.dvc/config.local
 
 secrets/
 .dvc/config.local
