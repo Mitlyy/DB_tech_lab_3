@@ -43,3 +43,12 @@ secrets/
 
 secrets/
 .dvc/config.local
+
+# ansible
+*.vault_pass
+.vault_pass
+.vault_pass.txt
+
+# генерируемые секреты
+.env
+secrets/
