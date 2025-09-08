@@ -1,10 +1,15 @@
 import json
+import os
+import sys
 
 import numpy as np
 import pandas as pd
 import pytest
+
 from src.inference import InferenceService
 from web.app import app
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 @pytest.fixture(scope="module")

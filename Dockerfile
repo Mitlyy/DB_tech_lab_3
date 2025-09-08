@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY src/ src/
+COPY app/ app/
 COPY web/ web/
 COPY config.ini .
 COPY requirements-serve.txt .
@@ -18,5 +19,5 @@ EXPOSE 4000
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -fsS http://127.0.0.1:4000/ || exit 1
 
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:4000", "web.app:app"]
+CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:4000", "app.main:app"]
 
