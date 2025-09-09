@@ -33,25 +33,22 @@ jobs:
         env:
           ANSIBLE_VAULT_PASS: ${{ secrets.ANSIBLE_VAULT_PASS }}
 
-      - name: Write vault pass to temp file
+      - name: Write vault pass to file in workspace
         run: |
-          set -euo pipefail
-          printf '%s' "${ANSIBLE_VAULT_PASS}" > "${RUNNER_TEMP}/vault_pass"
-          chmod 600 "${RUNNER_TEMP}/vault_pass"
-          ls -l "${RUNNER_TEMP}/vault_pass"
+          printf '%s' "${ANSIBLE_VAULT_PASS}" > vault_pass
+          chmod 600 vault_pass
         env:
           ANSIBLE_VAULT_PASS: ${{ secrets.ANSIBLE_VAULT_PASS }}
 
-      - name: Build (full, with secrets)
+      - name: Build image with vault secret
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: false
           tags: mitlyy/dbtechlab3:ci-test
-          provenance: false
           cache-from: type=registry,ref=mitlyy/dbtechlab3:latest
           cache-to: type=inline
           secret-files: |
-            id=vault_pass,src=${{ runner.temp }}/vault_pass
+            vault_pass=vault_pass
 
