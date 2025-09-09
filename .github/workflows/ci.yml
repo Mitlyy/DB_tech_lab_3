@@ -36,9 +36,9 @@ jobs:
       - name: Write vault pass to temp file
         run: |
           set -euo pipefail
-          printf '%s' "${ANSIBLE_VAULT_PASS}" > "${RUNNER_TEMP}/vault_pass.txt"
-          chmod 600 "${RUNNER_TEMP}/vault_pass.txt"
-          ls -l "${RUNNER_TEMP}/vault_pass.txt"
+          printf '%s' "${ANSIBLE_VAULT_PASS}" > "${RUNNER_TEMP}/vault_pass"
+          chmod 600 "${RUNNER_TEMP}/vault_pass"
+          ls -l "${RUNNER_TEMP}/vault_pass"
         env:
           ANSIBLE_VAULT_PASS: ${{ secrets.ANSIBLE_VAULT_PASS }}
 
