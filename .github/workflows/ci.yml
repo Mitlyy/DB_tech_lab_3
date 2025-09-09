@@ -53,5 +53,5 @@ jobs:
           cache-from: type=registry,ref=mitlyy/dbtechlab3:latest
           cache-to: type=inline
           secrets: |
-            id=vault_pass,src=${{ runner.temp }}/vault_pass.txt
+            id=vault_pass,src=${{ runner.temp }}/vault_pass
 
