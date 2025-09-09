@@ -27,7 +27,7 @@ jobs:
       - name: Check vault secret presence
         run: |
           if [ -z "${ANSIBLE_VAULT_PASS}" ]; then
-            echo "ANSIBLE_VAULT_PASS is EMPTY (repo secret not available for this event)"; exit 1;
+            echo "ANSIBLE_VAULT_PASS is EMPTY for this event"; exit 1;
           fi
           echo "ANSIBLE_VAULT_PASS is present (masked)"
         env:
